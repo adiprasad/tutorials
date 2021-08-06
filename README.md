@@ -1,4 +1,4 @@
 # Horovod Tutorials
 This repository contains tutorials for [Horovod](http://horovod.ai).
 
-* [Fashion MNIST Tutorial](fashion_mnist/README.md) - learn how to apply Horovod to a [WideResNet](https://arxiv.org/abs/1605.07146) model, trained on the [Fashion MNIST](https://github.com/zalandoresearch/fashion-mnist) dataset.
+* [Fashion MNIST Tutorial](cifar10_resnet50/README.md) - learn how to apply Horovod to a [ResNet50](https://arxiv.org/abs/1512.03385) model, trained on the [CIFAR10](https://www.cs.toronto.edu/~kriz/cifar.html) dataset.

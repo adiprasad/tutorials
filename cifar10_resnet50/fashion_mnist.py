@@ -2,14 +2,13 @@ from __future__ import print_function
 
 import argparse
 import keras
-from keras import backend as K
+from tensorflow.compat.v1.keras import backend as K
 from keras.preprocessing import image
-from keras.datasets import fashion_mnist
-from keras_contrib.applications.wide_resnet import WideResidualNetwork
+from keras.datasets import cifar10
 import numpy as np
-import tensorflow as tf
-import horovod.keras as hvd
+import tensorflow.compat.v1 as tf
 import os
+from keras import applications
 
 parser = argparse.ArgumentParser(description='Keras Fashion MNIST Example',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -33,15 +32,6 @@ args = parser.parse_args()
 # Checkpoints will be written in the log directory.
 args.checkpoint_format = os.path.join(args.log_dir, 'checkpoint-{epoch}.h5')
 
-# Horovod: initialize Horovod.
-hvd.init()
-
-# Horovod: pin GPU to be used to process local rank (one GPU per process)
-config = tf.ConfigProto()
-config.gpu_options.allow_growth = True
-config.gpu_options.visible_device_list = str(hvd.local_rank())
-K.set_session(tf.Session(config=config))
-
 # If set > 0, will resume training from a given checkpoint.
 resume_from_epoch = 0
 for try_epoch in range(args.epochs, 0, -1):
@@ -49,28 +39,23 @@ for try_epoch in range(args.epochs, 0, -1):
         resume_from_epoch = try_epoch
         break
 
-# Horovod: broadcast resume_from_epoch from rank 0 (which will have
-# checkpoints) to other ranks.
-resume_from_epoch = hvd.broadcast(resume_from_epoch, 0, name='resume_from_epoch')
-
-# Horovod: print logs on the first worker.
-verbose = 1 if hvd.rank() == 0 else 0
+verbose = 1
 
 # Input image dimensions
-img_rows, img_cols = 28, 28
+img_rows, img_cols = 32, 32
 num_classes = 10
 
 # Load Fashion MNIST data.
-(x_train, y_train), (x_test, y_test) = fashion_mnist.load_data()
+(x_train, y_train), (x_test, y_test) = cifar10.load_data()
 
 if K.image_data_format() == 'channels_first':
     x_train = x_train.reshape(x_train.shape[0], 1, img_rows, img_cols)
     x_test = x_test.reshape(x_test.shape[0], 1, img_rows, img_cols)
-    input_shape = (1, img_rows, img_cols)
+    input_shape = (3, img_rows, img_cols)
 else:
-    x_train = x_train.reshape(x_train.shape[0], img_rows, img_cols, 1)
-    x_test = x_test.reshape(x_test.shape[0], img_rows, img_cols, 1)
-    input_shape = (img_rows, img_cols, 1)
+    x_train = x_train.reshape(x_train.shape[0], img_rows, img_cols, 3)
+    x_test = x_test.reshape(x_test.shape[0], img_rows, img_cols, 3)
+    input_shape = (img_rows, img_cols, 3)
 
 # Convert class vectors to binary class matrices
 y_train = keras.utils.to_categorical(y_train, num_classes)
@@ -89,16 +74,12 @@ test_gen.std = train_gen.std
 test_iter = test_gen.flow(x_test, y_test, batch_size=args.val_batch_size)
 
 # Restore from a previous checkpoint, if initial_epoch is specified.
-# Horovod: restore on the first worker which will broadcast both model and optimizer weights
-# to other workers.
-if resume_from_epoch > 0 and hvd.rank() == 0:
-    model = hvd.load_model(args.checkpoint_format.format(epoch=resume_from_epoch))
+if resume_from_epoch > 0:
+    model = keras.models.load_model(args.checkpoint_format.format(epoch=resume_from_epoch))
 else:
-    # Set up standard WideResNet-16-10 model.
-    model = WideResidualNetwork(depth=16, width=10, weights=None, input_shape=input_shape,
-                                classes=num_classes, dropout_rate=0.01)
+    model = applications.ResNet50(input_shape=input_shape, classes=num_classes, weights=None)
 
-    # WideResNet model that is included with Keras is optimized for inference.
+    # Resnet50 model that is included with Keras is optimized for inference.
     # Add L2 weight decay & adjust BN settings.
     model_config = model.get_config()
     for layer, layer_config in zip(model.layers, model_config['layers']):
@@ -113,12 +94,8 @@ else:
 
     model = keras.models.Model.from_config(model_config)
 
-    # Horovod: adjust learning rate based on number of GPUs.
-    opt = keras.optimizers.SGD(lr=args.base_lr * hvd.size(),
+    opt = keras.optimizers.SGD(lr=args.base_lr,
                                momentum=args.momentum)
-
-    # Horovod: add Horovod Distributed Optimizer.
-    opt = hvd.DistributedOptimizer(opt)
 
     model.compile(loss=keras.losses.categorical_crossentropy,
                   optimizer=opt,
@@ -136,11 +113,6 @@ def lr_schedule(epoch):
 
 
 callbacks = [
-    # Horovod: broadcast initial variable states from rank 0 to all other processes.
-    # This is necessary to ensure consistent initialization of all workers when
-    # training is started with random weights or restored from a checkpoint.
-    hvd.callbacks.BroadcastGlobalVariablesCallback(0),
-
     keras.callbacks.LearningRateScheduler(lr_schedule),
     keras.callbacks.ModelCheckpoint(args.checkpoint_format),
     keras.callbacks.TensorBoard(args.log_dir)

@@ -2,13 +2,14 @@ from __future__ import print_function
 
 import argparse
 import keras
-from keras import backend as K
+from tensorflow.compat.v1.keras import backend as K
 from keras.preprocessing import image
-from keras.datasets import fashion_mnist
-from keras_contrib.applications.wide_resnet import WideResidualNetwork
+from keras.datasets import cifar10
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 import os
+import horovod.keras as hvd
+from keras import applications
 
 parser = argparse.ArgumentParser(description='Keras Fashion MNIST Example',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -42,20 +43,20 @@ for try_epoch in range(args.epochs, 0, -1):
 verbose = 1
 
 # Input image dimensions
-img_rows, img_cols = 28, 28
+img_rows, img_cols = 32, 32
 num_classes = 10
 
-# Load Fashion MNIST data.
-(x_train, y_train), (x_test, y_test) = fashion_mnist.load_data()
+# Load CIFAR10 data.
+(x_train, y_train), (x_test, y_test) = cifar10.load_data()
 
 if K.image_data_format() == 'channels_first':
     x_train = x_train.reshape(x_train.shape[0], 1, img_rows, img_cols)
     x_test = x_test.reshape(x_test.shape[0], 1, img_rows, img_cols)
-    input_shape = (1, img_rows, img_cols)
+    input_shape = (3, img_rows, img_cols)
 else:
-    x_train = x_train.reshape(x_train.shape[0], img_rows, img_cols, 1)
-    x_test = x_test.reshape(x_test.shape[0], img_rows, img_cols, 1)
-    input_shape = (img_rows, img_cols, 1)
+    x_train = x_train.reshape(x_train.shape[0], img_rows, img_cols, 3)
+    x_test = x_test.reshape(x_test.shape[0], img_rows, img_cols, 3)
+    input_shape = (img_rows, img_cols, 3)
 
 # Convert class vectors to binary class matrices
 y_train = keras.utils.to_categorical(y_train, num_classes)
@@ -77,11 +78,9 @@ test_iter = test_gen.flow(x_test, y_test, batch_size=args.val_batch_size)
 if resume_from_epoch > 0:
     model = keras.models.load_model(args.checkpoint_format.format(epoch=resume_from_epoch))
 else:
-    # Set up standard WideResNet-16-10 model.
-    model = WideResidualNetwork(depth=16, width=10, weights=None, input_shape=input_shape,
-                                classes=num_classes, dropout_rate=0.01)
+    model = applications.ResNet50(input_shape=input_shape, classes=num_classes, weights=None)
 
-    # WideResNet model that is included with Keras is optimized for inference.
+    # Resnet50 model that is included with Keras is optimized for inference.
     # Add L2 weight decay & adjust BN settings.
     model_config = model.get_config()
     for layer, layer_config in zip(model.layers, model_config['layers']):

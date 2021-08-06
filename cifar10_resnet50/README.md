@@ -1,6 +1,6 @@
-# Fashion MNIST Tutorial
+# CIFAR10 Resnet50 Tutorial
 
-In this tutorial, you will learn how to apply Horovod to a [WideResNet](https://arxiv.org/abs/1605.07146) model, trained on the [Fashion MNIST](https://github.com/zalandoresearch/fashion-mnist) dataset.
+In this tutorial, you will learn how to apply Horovod to a [ResNet50](https://arxiv.org/abs/1512.03385) model, trained on the [CIFAR10](https://www.cs.toronto.edu/~kriz/cifar.html) dataset.
 
 ## Prerequisites
 
@@ -18,15 +18,15 @@ In this lab, we will use the Terminal and File Editor features.
 
 ## Explore model files
 
-On the left hand side, you will see a number of Python files: `fashion_mnist.py`, `fashion_mnist_solution.py`, and a few intermediate files `fashion_mnist_after_step_N.py`.
+On the left hand side, you will see a number of Python files: `cifar10_resnet50.py`, `cifar10_resnet50_solution.py`, and a few intermediate files `cifar10_resnet50_after_step_N.py`.
 
 <img src="https://user-images.githubusercontent.com/16640218/54183508-9000d180-4461-11e9-8fdb-995f065aa4b9.png" width="300"></img>
 
-The first file contains the Keras model that does not have any Horovod code, while the second one has all the Horovod features added.  In this tutorial, we will guide you to transform `fashion_mnist.py` into `fashion_mnist_solution.py` step-by-step.  If you get stuck at any point, you can compare your code with the `fashion_mnist_after_step_N.py` file that corresponds to the step you're at.
+The first file contains the Keras model that does not have any Horovod code, while the second one has all the Horovod features added.  In this tutorial, we will guide you to transform `cifar10_resnet50.py` into `cifar10_resnet50_solution.py` step-by-step.  If you get stuck at any point, you can compare your code with the `cifar10_resnet50_after_step_N.py` file that corresponds to the step you're at.
 
 Why Keras?  We chose Keras due to its simplicity, and the fact that it will be the way to define models in TensorFlow 2.0.
 
-## Run fashion_mnist.py
+## Run cifar10_resnet50.py
 
 Before we go into modifications required to scale our WideResNet model, let's run a single-GPU version of the model.
 
@@ -37,8 +37,8 @@ In the Launcher, click the Terminal button:
 In the terminal, type:
 
 ```
-$ cp fashion_mnist.py fashion_mnist_backup.py
-$ python fashion_mnist_backup.py --log-dir baseline
+$ cp cifar10_resnet50.py cifar10_resnet50_backup.py
+$ python cifar10_resnet50_backup.py --log-dir baseline
 ```
 
 ![image](https://user-images.githubusercontent.com/16640218/53534844-5620ea00-3ab5-11e9-9307-332db459da66.png)
@@ -53,9 +53,9 @@ Open the browser and load `http://<ip-address-of-vm>:6006/`:
 
 You will see training curves in the TensorBoard.  Let it run.  We will get back to the results later.
 
-## Modify fashion_mnist.py
+## Modify cifar10_resnet50.py
 
-Double-click `fashion_mnist.py` in the file picker, which will open it in the editor:
+Double-click `cifar10_resnet50.py` in the file picker, which will open it in the editor:
 
 ![image](https://user-images.githubusercontent.com/16640218/53517877-8c924100-3a84-11e9-9a65-a9054529cc6a.png)
 
@@ -107,7 +107,7 @@ K.set_session(tf.Session(config=config))
 
 ### 4. Broadcast the starting epoch from the first worker to everyone else
 
-In `fashion_mnist.py`, we're using the filename of the last checkpoint to determine the epoch to resume training from in case of a failure:
+In `cifar10_resnet50.py`, we're using the filename of the last checkpoint to determine the epoch to resume training from in case of a failure:
 
 ![image](https://user-images.githubusercontent.com/16640218/54185268-d35d3f00-4465-11e9-99eb-96d4b99f1d38.png)
 
@@ -164,8 +164,8 @@ else:
     ...
 ```
 
-![image](https://user-images.githubusercontent.com/16640218/53534410-9717ff00-3ab3-11e9-86eb-1bf8299416d2.png)
-(see line 91-96)
+![image](https://user-images.githubusercontent.com/8098496/128549838-b43f0def-ab65-4fc3-b186-ba016d22c84c.png)
+(see line 96-101)
 
 ### 7. Adjust learning rate and add Distributed Optimizer
 
@@ -239,19 +239,19 @@ callbacks = [
     # Horovod: using `lr = 1.0 * hvd.size()` from the very beginning leads to worse final
     # accuracy. Scale the learning rate `lr = 1.0` ---> `lr = 1.0 * hvd.size()` during
     # the first five epochs. See https://arxiv.org/abs/1706.02677 for details.
-    hvd.callbacks.LearningRateWarmupCallback(warmup_epochs=args.warmup_epochs, verbose=verbose),
+    hvd.callbacks.LearningRateWarmupCallback(warmup_epochs=args.warmup_epochs, verbose=verbose, initial_lr = args.base_lr * hvd.size()),
 
     # Horovod: after the warmup reduce learning rate by 10 on the 15th, 25th and 35th epochs.
-    hvd.callbacks.LearningRateScheduleCallback(start_epoch=args.warmup_epochs, end_epoch=15, multiplier=1.),
-    hvd.callbacks.LearningRateScheduleCallback(start_epoch=15, end_epoch=25, multiplier=1e-1),
-    hvd.callbacks.LearningRateScheduleCallback(start_epoch=25, end_epoch=35, multiplier=1e-2),
-    hvd.callbacks.LearningRateScheduleCallback(start_epoch=35, multiplier=1e-3),
+    hvd.callbacks.LearningRateScheduleCallback(start_epoch=args.warmup_epochs, end_epoch=15, multiplier=1., initial_lr = args.base_lr * hvd.size()),
+    hvd.callbacks.LearningRateScheduleCallback(start_epoch=15, end_epoch=25, multiplier=1e-1, initial_lr = args.base_lr * hvd.size()),
+    hvd.callbacks.LearningRateScheduleCallback(start_epoch=25, end_epoch=35, multiplier=1e-2, initial_lr = args.base_lr * hvd.size()),
+    hvd.callbacks.LearningRateScheduleCallback(start_epoch=35, multiplier=1e-3, initial_lr = args.base_lr * hvd.size()),
 
     ...
 ```
 
-![image](https://user-images.githubusercontent.com/16640218/53535420-98e3c180-3ab7-11e9-8780-9258081f66c5.png)
-(see line 133-142)
+![image](https://user-images.githubusercontent.com/8098496/128549852-8de2b842-5527-4c4a-a06a-8a9fc5d0b361.png)
+(see line 149-153)
 
 Since we've added a new `args.warmup_epochs` argument, we should register it:
 
@@ -345,25 +345,25 @@ callbacks = [
 
 ## Check your work
 
-Congratulations!  If you made it this far, your `fashion_mnist.py` should now be fully distributed.  To verify, you can run the following command in the terminal, which should produce no output:
+Congratulations!  If you made it this far, your `cifar10_resnet50.py` should now be fully distributed.  To verify, you can run the following command in the terminal, which should produce no output:
 
 ```
-$ diff fashion_mnist.py fashion_mnist_solution.py
+$ diff cifar10_resnet50.py cifar10_resnet50_solution.py
 $
 ```
 
 ![image](https://user-images.githubusercontent.com/16640218/53536688-23c6bb00-3abc-11e9-9413-1c4ad179653a.png)
 
-## Run distributed fashion_mnist.py
+## Run distributed cifar10_resnet50.py
 
-It's time to run your distributed `fashion_mnist.py`.  First, let's check if the single-GPU version completed.  Open the terminal, and verify that it did complete, and interrupt it using Ctrl-C if it did not.
+It's time to run your distributed `cifar10_resnet50.py`.  First, let's check if the single-GPU version completed.  Open the terminal, and verify that it did complete, and interrupt it using Ctrl-C if it did not.
 
 ![image](https://user-images.githubusercontent.com/16640218/53536718-448f1080-3abc-11e9-9e22-021dc3ba5de9.png)
 
-Now, run distributed `fashion_mnist.py` using:
+Now, run distributed `cifar10_resnet50.py` using:
 
 ```
-$ horovodrun -np 4 python fashion_mnist.py --log-dir distributed
+$ horovodrun -np 4 python cifar10_resnet50.py --log-dir distributed
 ```
 
 ![image](https://user-images.githubusercontent.com/16640218/53536888-da2aa000-3abc-11e9-9083-43060634433c.png)
