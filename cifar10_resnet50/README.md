@@ -1,5 +1,8 @@
 # CIFAR10 Resnet50 Tutorial
 
+**Adapted for Resnet50 and CIFAR10 from [Horovod's Fashion MNIST tutorial](https://github.com/horovod/tutorials/tree/master/fashion_mnist)**
+ 
+
 In this tutorial, you will learn how to apply Horovod to a [ResNet50](https://arxiv.org/abs/1512.03385) model, trained on the [CIFAR10](https://www.cs.toronto.edu/~kriz/cifar.html) dataset.
 
 ## Prerequisites
@@ -12,15 +15,17 @@ Let's begin!
 
 When you open Jupyter Lab in your browser, you will see a screen similar to this:
 
-![image](https://user-images.githubusercontent.com/16640218/54183442-68aa0480-4461-11e9-872e-89e739ab0937.png)
+![image](https://user-images.githubusercontent.com/8098496/128559740-993036d0-c9a8-492c-a191-461265e5b702.png)
 
 In this lab, we will use the Terminal and File Editor features.
+
+## Setup Environment variables
 
 ## Explore model files
 
 On the left hand side, you will see a number of Python files: `cifar10_resnet50.py`, `cifar10_resnet50_solution.py`, and a few intermediate files `cifar10_resnet50_after_step_N.py`.
 
-<img src="https://user-images.githubusercontent.com/16640218/54183508-9000d180-4461-11e9-8fdb-995f065aa4b9.png" width="300"></img>
+<img src="https://user-images.githubusercontent.com/8098496/128559765-101650e7-6e16-4aba-8e94-272e48b57203.png" width="300"></img>
 
 The first file contains the Keras model that does not have any Horovod code, while the second one has all the Horovod features added.  In this tutorial, we will guide you to transform `cifar10_resnet50.py` into `cifar10_resnet50_solution.py` step-by-step.  If you get stuck at any point, you can compare your code with the `cifar10_resnet50_after_step_N.py` file that corresponds to the step you're at.
 
@@ -57,7 +62,7 @@ You will see training curves in the TensorBoard.  Let it run.  We will get back 
 
 Double-click `cifar10_resnet50.py` in the file picker, which will open it in the editor:
 
-![image](https://user-images.githubusercontent.com/16640218/53517877-8c924100-3a84-11e9-9a65-a9054529cc6a.png)
+![image](https://user-images.githubusercontent.com/8098496/128559814-48054a5b-7f01-43f4-a5ec-a12b63ee0640.png)
 
 Let's dive into the modifications!
 
@@ -69,8 +74,8 @@ Add the following code after `import tensorflow as tf`:
 import horovod.keras as hvd
 ```
 
-![image](https://user-images.githubusercontent.com/16640218/53517965-c8c5a180-3a84-11e9-9b36-e745bebe84df.png)
-(see line 12)
+![image](https://user-images.githubusercontent.com/8098496/128559846-2b856cf6-b54d-4714-bb76-55a04b96dcc7.png)
+(see line 11)
 
 ### 2. Initialize Horovod
 
@@ -81,7 +86,7 @@ Add the following code after `args.checkpoint_format = os.path.join(args.log_dir
 hvd.init()
 ```
 
-![image](https://user-images.githubusercontent.com/16640218/54185178-9d1fbf80-4465-11e9-8617-1f335038a4e0.png)
+![image](https://user-images.githubusercontent.com/8098496/128559904-05bf456e-eba4-492b-8016-bcb26d012bd2.png)
 (see line 36-37)
 
 ### 3. Pin GPU to be used by each process
@@ -102,14 +107,14 @@ config.gpu_options.visible_device_list = str(hvd.local_rank())
 K.set_session(tf.Session(config=config))
 ```
 
-![image](https://user-images.githubusercontent.com/16640218/54185222-b9bbf780-4465-11e9-83de-4c587db327ae.png)
+![image](https://user-images.githubusercontent.com/8098496/128559932-e68e872c-85e0-4ef6-ab20-7220260a7f42.png)
 (see line 39-43)
 
 ### 4. Broadcast the starting epoch from the first worker to everyone else
 
 In `cifar10_resnet50.py`, we're using the filename of the last checkpoint to determine the epoch to resume training from in case of a failure:
 
-![image](https://user-images.githubusercontent.com/16640218/54185268-d35d3f00-4465-11e9-99eb-96d4b99f1d38.png)
+![image](https://user-images.githubusercontent.com/8098496/128559945-69f4006e-f88c-4eb7-9cbc-7e0ed0e280d0.png)
 
 As you scale your workload to multi-node, some of your workers may not have access to the filesystem containing the checkpoint.  For that reason, we make the first worker to determine the epoch to restart from, and *broadcast* that information to the rest of the workers.
 
@@ -121,7 +126,7 @@ To broadcast the starting epoch from the first worker, add the following code:
 resume_from_epoch = hvd.broadcast(resume_from_epoch, 0, name='resume_from_epoch')
 ```
 
-![image](https://user-images.githubusercontent.com/16640218/53534072-2de3bc00-3ab2-11e9-8cf1-7531542e3202.png)
+![image](https://user-images.githubusercontent.com/8098496/128559962-827c49e5-d2d5-4689-be3c-172308b70cea.png)
 (see line 52-54)
 
 ### 5. Print verbose logs only on the first worker
@@ -135,7 +140,7 @@ Replace `verbose = 1` with the following code:
 verbose = 1 if hvd.rank() == 0 else 0
 ```
 
-![image](https://user-images.githubusercontent.com/16640218/53534314-2244c500-3ab3-11e9-95ef-e7e7b282ab4f.png)
+![image](https://user-images.githubusercontent.com/8098496/128559980-e8779004-0990-47a6-9c94-55bd5b268aae.png)
 (see line 56-57)
 
 ### 6. Read checkpoint only on the first worker
@@ -164,8 +169,8 @@ else:
     ...
 ```
 
-![image](https://user-images.githubusercontent.com/8098496/128549838-b43f0def-ab65-4fc3-b186-ba016d22c84c.png)
-(see line 96-101)
+![image](https://user-images.githubusercontent.com/8098496/128559992-d0a3a3d9-b39c-4c87-94a1-a38a84a30197.png)
+(see line 91-97)
 
 ### 7. Adjust learning rate and add Distributed Optimizer
 
@@ -182,8 +187,8 @@ opt = keras.optimizers.SGD(lr=args.base_lr * hvd.size(),
 opt = hvd.DistributedOptimizer(opt)
 ```
 
-![image](https://user-images.githubusercontent.com/16640218/53534579-52409800-3ab4-11e9-971e-f7def73c7b36.png)
-(see line 116-121)
+![image](https://user-images.githubusercontent.com/8098496/128560003-99ddbd77-93b9-4729-b056-5c943853a5c2.png)
+(see line 114-119)
 
 ### 8. Add BroadcastGlobalVariablesCallback
 
@@ -201,8 +206,8 @@ callbacks = [
     ...
 ```
 
-![image](https://user-images.githubusercontent.com/16640218/53535043-1dcddb80-3ab6-11e9-9911-1eb33a1f531c.png)
-(see line 139-142)
+![image](https://user-images.githubusercontent.com/8098496/128560076-032af016-4295-4764-a639-c89174aa1705.png)
+(see line 137-140)
 
 ### 9. Add learning rate warmup
 
@@ -250,8 +255,8 @@ callbacks = [
     ...
 ```
 
-![image](https://user-images.githubusercontent.com/8098496/128549852-8de2b842-5527-4c4a-a06a-8a9fc5d0b361.png)
-(see line 149-153)
+![image](https://user-images.githubusercontent.com/8098496/128560096-2d01cd13-ab3a-4f0d-a8ba-b4d642917ff4.png)
+(see line 144-156)
 
 Since we've added a new `args.warmup_epochs` argument, we should register it:
 
@@ -260,7 +265,7 @@ parser.add_argument('--warmup-epochs', type=float, default=5,
                     help='number of warmup epochs')
 ```
 
-![image](https://user-images.githubusercontent.com/16640218/54185817-284d8500-4467-11e9-9f7d-c6adc5b12cbf.png)
+![image](https://user-images.githubusercontent.com/8098496/128560105-9ff14c1b-aaec-4795-86a4-cd2aae30545b.png)
 (see line 26-27)
 
 ### 10. Save checkpoints & logs only of the first worker
@@ -291,8 +296,8 @@ if hvd.rank() == 0:
     callbacks.append(keras.callbacks.TensorBoard(args.log_dir))
 ```
 
-![image](https://user-images.githubusercontent.com/16640218/53535616-4e167980-3ab8-11e9-82d9-82e431dfd621.png)
-(see line 145-148)
+![image](https://user-images.githubusercontent.com/8098496/128560137-fd1e78b3-7491-42c9-8e11-1e6f8322aa5f.png)
+(see line 162-164)
 
 ### 11. Modify training loop to execute fewer steps per epoch
 
@@ -318,8 +323,8 @@ model.fit_generator(train_iter,
                     validation_steps=3 * len(test_iter) // hvd.size())
 ```
 
-![image](https://user-images.githubusercontent.com/16640218/53536410-283ea400-3abb-11e9-8742-05921b0795de.png)
-(see line 152-164)
+![image](https://user-images.githubusercontent.com/8098496/128560158-2a987f62-7faa-4790-a02c-98137467c16d.png)
+(see line 166-178)
 
 ### 12. Average validation results among workers
 
@@ -340,8 +345,8 @@ callbacks = [
     ...
 ```
 
-![image](https://user-images.githubusercontent.com/16640218/53536553-b2870800-3abb-11e9-88f9-1a2758bd25dd.png)
-(see line 135-139)
+![image](https://user-images.githubusercontent.com/8098496/128560179-3de1ebfd-72dc-491f-8fa2-877b31e630af.png)
+(see line 144-148)
 
 ## Check your work
 
@@ -351,8 +356,6 @@ Congratulations!  If you made it this far, your `cifar10_resnet50.py` should now
 $ diff cifar10_resnet50.py cifar10_resnet50_solution.py
 $
 ```
-
-![image](https://user-images.githubusercontent.com/16640218/53536688-23c6bb00-3abc-11e9-9413-1c4ad179653a.png)
 
 ## Run distributed cifar10_resnet50.py
 
