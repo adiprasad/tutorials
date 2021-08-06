@@ -2,7 +2,6 @@
 
 **Adapted for Resnet50 and CIFAR10 from [Horovod's Fashion MNIST tutorial](https://github.com/horovod/tutorials/tree/master/fashion_mnist)**
  
-
 In this tutorial, you will learn how to apply Horovod to a [ResNet50](https://arxiv.org/abs/1512.03385) model, trained on the [CIFAR10](https://www.cs.toronto.edu/~kriz/cifar.html) dataset.
 
 ## Prerequisites
@@ -19,7 +18,34 @@ When you open Jupyter Lab in your browser, you will see a screen similar to this
 
 In this lab, we will use the Terminal and File Editor features.
 
-## Setup Environment variables
+## Setup Environment
+
+1. Make a conda env
+
+2. Install tensorflow-gpu (pip install tensorflow-gpu)
+
+3. pip install --upgrade pip 
+
+3. Uninstall any and all keras versions (use pip list to list and subequently do a pip uninstall <lib-name>) 
+
+4. pip3 install keras==2.4.3
+
+5. HOROVOD_WITH_TENSORFLOW=1 pip install horovod[tensorflow,keras]
+
+To check if horovod intalled successfully, open the python shell and try :-
+
+```python
+import horovod.keras as hvd
+```
+
+Also try running horovodrun on the shell, 
+
+```
+$ horovodrun
+``` 
+
+which should output the usage of horovodrun command
+
 
 ## Explore model files
 
