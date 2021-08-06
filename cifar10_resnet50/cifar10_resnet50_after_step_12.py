@@ -162,8 +162,6 @@ callbacks = [
                                                initial_lr=args.base_lr * hvd.size()),
     hvd.callbacks.LearningRateScheduleCallback(start_epoch=35, multiplier=1e-3, initial_lr=args.base_lr * hvd.size()),
 
-    keras.callbacks.ModelCheckpoint(args.checkpoint_format),
-    keras.callbacks.TensorBoard(args.log_dir)
 ]
 
 # Horovod: save checkpoints only on the first worker to prevent other workers from corrupting them.
