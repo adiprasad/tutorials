@@ -77,9 +77,11 @@ RUN pip install --no-cache-dir future typing packaging
 RUN pip install --no-cache-dir tensorboard
 RUN pip install --no-cache-dir \
     tensorflow==${TENSORFLOW_VERSION} \
-    keras \
     h5py
 
+RUN pip uninstall -y keras-nightly
+
+RUN pip install --no-cache-dir keras==2.4.3
 #RUN pip install --no-cache-dir mxnet-cu112==${MXNET_VERSION}
 
 ## Install Spark stand-alone cluster.
